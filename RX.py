@@ -1,20 +1,21 @@
 import pyb
 
-lens = [0,0,0,0,0,0]
+#lens = [0,0,0,0,0,0]
 ch_up = [0,0,0,0,0,0]
-ch_up_set = [0,0,0,0,0,0]
+ch_up_set = [0,0,0,0,0,0,0]
 ch_pin = ( pyb.Pin.board.Y5,pyb.Pin.board.Y6,pyb.Pin.board.Y7,pyb.Pin.board.Y8  )
-
+ch_bias = [0.,0.,0.,0.,0.,0.]
 
 #ch_min = [ 1000,1000,1000,1000,1000,1000 ]
 #ch_max = [ 2000,2000,2000,2000,2000,2000 ]
 ch_min = 1050
 ch_max = 1880
 
-des_min = [ -45,0,-45,-45,0,0 ]
-des_max = [ 45,180,45,45,1,1 ]
+des_min = ( -45,0,-45,-45)
+des_max = ( 45,180,45,45)
 ch_des = [0.,0.,0.,0.,0.,0.]
 fresh = False
+first = True
 
 def init():
     pyb.ExtInt( pyb.Pin.board.Y5, pyb.ExtInt.IRQ_RISING, pyb.Pin.PULL_UP, intCH1)
@@ -52,9 +53,12 @@ def intCH4(line):
         fresh = True
 
 def get_rx():
-    global fresh
+    global fresh,first
     if fresh:
         calc_rx()
+        if first:
+            calibrate()
+            first = False
         fresh = False
     else:
         print('not fresh')
@@ -67,15 +71,18 @@ def print_rx():
 
 def calc_rx():
     global fresh
-    for i in range(4):
-        lens[i] = ch_up_set[i + 1] - ch_up_set[i]
-        #print(lens[i],end=' ')
-    #print()
 
-    for i in range(4):
-        ch_des[i] = (lens[i]-ch_min) * ( des_max[i] - des_min[i] ) / (ch_max - ch_min) + des_min[i]
+    for i,(up,down,mini,maxi,bias) in enumerate( zip(ch_up_set,ch_up_set[1:],des_min,des_max,ch_bias) ):
+        ch_des[i] = (down - up - ch_min) * ( maxi - mini ) / (ch_max - ch_min) + mini - bias
 
     fresh = False
+
+def calibrate():
+    for i in range(4):
+        ch_bias[i] = ch_des[i]
+
+    print('calibrated:',ch_bias)
+
 
 def pin(board):
     return pyb.Pin(board).value()
